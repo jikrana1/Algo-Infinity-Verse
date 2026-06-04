@@ -2151,6 +2151,33 @@ body {
 }
 
 /* ===== QUIZ EDITOR MODAL ===== */
+/* ===== QUIZ LOADING SCREEN ===== */
+.quiz-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    text-align: center;
+    width: 100%;
+}
+
+.quiz-loading h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    margin-top: 1rem;
+    background: var(--gradient-3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#loadingTopicName {
+    font-family: 'Fira Code', monospace;
+    color: var(--accent);
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+    letter-spacing: 1px;
+}
 #quizEditorModal {
   z-index: 3000;
 }
@@ -4051,6 +4078,84 @@ body.light-mode {
 .delay-3 { animation-delay: 0.3s; }
 .delay-4 { animation-delay: 0.4s; }
 .delay-5 { animation-delay: 0.5s; }
+.quiz-loading {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.quiz-spinner {
+    width: 60px;
+    height: 60px;
+    margin: 20px auto;
+    border: 5px solid #e5e7eb;
+    border-top: 5px solid #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.hidden {
+    display: none !important;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+.quiz-option.selected {
+    pointer-events: auto !important;
+}
+
+.quiz-option {
+    pointer-events: auto;
+}
+/* ===== QUIZ LOADING ANIMATION ===== */
+.quiz-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    text-align: center;
+    min-height: 250px;
+}
+
+.quiz-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.1);
+    border-top: 5px solid var(--primary, #7c3aed); /* Project theme color */
+    border-radius: 50%;
+    animation: spinQuizLoader 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--text-primary, #ffffff);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+#loadingTopicName {
+    color: var(--accent, #06b6d4);
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+}
+
+@keyframes spinQuizLoader {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Global utility flag to handle hide/show switches */
+.hidden {
+    display: none !important;
+
 .recommendation-card{
     margin-top:15px;
     padding:15px;
@@ -4060,6 +4165,7 @@ body.light-mode {
 
 .recommendation-card h4{
     margin-bottom:8px;
+
 }
 
 .totd-desc {
@@ -4148,6 +4254,7 @@ body.light-mode {
   justify-content: center;
 }
 
+
 @media (max-width: 768px) {
   .totd-content {
       flex-direction: column;
@@ -4167,3 +4274,4 @@ body.light-mode {
       text-align: center;
   }
 }
+
