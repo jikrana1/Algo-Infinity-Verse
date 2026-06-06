@@ -1516,11 +1516,33 @@ function getDifficultyClass(difficulty) {
 
 // Get quiz topic key from topic object
 function getQuizTopicKey(topic) {
+  const normalize = (s) =>
+    String(s)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+
+  const toKnownKey = (key) => {
+    const map = {
+      arrays: "arrays",
+      strings: "strings",
+      "linked list": "linkedlist",
+      linkedlist: "linkedlist",
+      trees: "trees",
+      graphs: "graphs",
+      "dynamic programming": "dp",
+      dp: "dp",
+    };
+    return map[normalize(key)] || null;
+  };
+
+  // If we already received a key, normalize it to one of quizQuestions keys.
   if (typeof topic === "string") {
-    return topic;
+    return toKnownKey(topic) || normalize(topic).replace(/\s+/g, "");
   }
-  const name = topic.name.toLowerCase();
-  // Map topic names to quiz keys
+
+  const name = normalize(topic.name);
+
   const keyMap = {
     arrays: "arrays",
     strings: "strings",
@@ -1529,8 +1551,10 @@ function getQuizTopicKey(topic) {
     graphs: "graphs",
     "dynamic programming": "dp",
   };
-  return keyMap[name] || name.replace(/\s+/g, "");
+
+  return keyMap[name] || toKnownKey(name) || name.replace(/\s+/g, "");
 }
+
 
 function initQuizSection() {
   try {
@@ -1621,11 +1645,23 @@ function startQuiz(topicKey) {
   console.log("startQuiz called");
   console.log("topicKey =", topicKey);
   console.log("startQuiz called with:", topicKey);
-  const topicQuiz = quizQuestions[topicKey];
+
+  // Normalize topicKey defensively in case caller passes name/variant.
+  const normalizedTopicKey = getQuizTopicKey(String(topicKey));
+  const topicQuiz = quizQuestions[normalizedTopicKey];
+
   if (!topicQuiz || topicQuiz.length === 0) {
-    console.error("Quiz data not found for:", topicKey);
+    console.error("Quiz data not found for:", {
+      rawTopicKey: topicKey,
+      normalizedTopicKey,
+      availableKeys: Object.keys(quizQuestions),
+    });
     return;
   }
+
+  // Ensure we use the normalized key everywhere below.
+  topicKey = normalizedTopicKey;
+
 
   const resultEl = document.getElementById("topicQuizResult");
 
