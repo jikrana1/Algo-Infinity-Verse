@@ -3023,6 +3023,9 @@ body {
   position: relative;
   overflow: hidden;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
 }
 
 .quiz-card::before {
