@@ -90,3 +90,4 @@ body.analyst-body {
     .analyst-workspace { flex-direction: column; }
     .panel-left, .panel-right { width: 100%; }
     .panel-left { border-right: none; border-bottom: 1px solid var(--glass-border); }
+}

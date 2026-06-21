@@ -11,7 +11,7 @@
     
     <!-- External Stylesheets -->
     <link rel="stylesheet" href="../../styles.css" />
-    <link rel="stylesheet" href="crdt-whiteboard.css" />
+    <link rel="stylesheet" href="CRDT-Whiteboard.css" />
 </head>
 <body class="crdt-body">
 
@@ -20,7 +20,7 @@
             <span class="logo-text">∞</span>
             <span class="logo-title">Algo Infinity Verse</span>
         </div>
-        <div class="network-status" id="networkStatus">
+        <div class="network-status" id="networkStatus" aria-live="polite">
             <div class="status-dot"></div>
             Connecting to Swarm...
         </div>
@@ -32,7 +32,7 @@
             <div class="room-link-container">
                 <span class="room-label">Live Session ID:</span>
                 <code id="roomIdDisplay">...</code>
-                <button id="btnCopyLink" class="btn-icon" title="Copy Invite Link"><i class="fas fa-link"></i> Invite</button>
+                <button id="btnCopyLink" class="btn-icon" type="button" title="Copy Invite Link"><i class="fas fa-link"></i> Invite</button>
             </div>
         </div>
         <div class="toolbar-right">
@@ -42,55 +42,60 @@
                     <!-- Avatars injected by Yjs Awareness -->
                 </div>
             </div>
-            <button class="btn btn-danger btn-sm" id="btnClearBoard"><i class="fas fa-trash-alt"></i> Clear Board</button>
+            <button class="btn btn-danger btn-sm" id="btnClearBoard" type="button"><i class="fas fa-trash-alt"></i> Clear Board</button>
         </div>
     </div>
 
     <div class="crdt-app-container">
         <!-- Sidebar Palette -->
-        <aside class="crdt-sidebar">
+        <aside class="crdt-sidebar" aria-label="Component palette">
             <div class="sidebar-header">
                 <i class="fas fa-server"></i> Components
             </div>
             <div class="palette-container" id="palette">
-                <div class="palette-item" draggable="true" data-type="client" data-color="#3b82f6" data-icon="fa-laptop">
+                <div class="palette-item" draggable="true" data-type="client" data-color="#3b82f6" data-icon="fa-laptop" style="--item-color: #3b82f6;">
                     <i class="fas fa-laptop"></i> Client
                 </div>
-                <div class="palette-item" draggable="true" data-type="server" data-color="#10b981" data-icon="fa-server">
+                <div class="palette-item" draggable="true" data-type="server" data-color="#10b981" data-icon="fa-server" style="--item-color: #10b981;">
                     <i class="fas fa-server"></i> Web Server
                 </div>
-                <div class="palette-item" draggable="true" data-type="database" data-color="#f59e0b" data-icon="fa-database">
+                <div class="palette-item" draggable="true" data-type="database" data-color="#f59e0b" data-icon="fa-database" style="--item-color: #f59e0b;">
                     <i class="fas fa-database"></i> Database
                 </div>
-                <div class="palette-item" draggable="true" data-type="cache" data-color="#ec4899" data-icon="fa-bolt">
+                <div class="palette-item" draggable="true" data-type="cache" data-color="#ec4899" data-icon="fa-bolt" style="--item-color: #ec4899;">
                     <i class="fas fa-bolt"></i> Cache
                 </div>
-                <div class="palette-item" draggable="true" data-type="lb" data-color="#8b5cf6" data-icon="fa-network-wired">
+                <div class="palette-item" draggable="true" data-type="lb" data-color="#8b5cf6" data-icon="fa-network-wired" style="--item-color: #8b5cf6;">
                     <i class="fas fa-network-wired"></i> Load Balancer
                 </div>
-                <div class="palette-item" draggable="true" data-type="queue" data-color="#14b8a6" data-icon="fa-layer-group">
+                <div class="palette-item" draggable="true" data-type="queue" data-color="#14b8a6" data-icon="fa-layer-group" style="--item-color: #14b8a6;">
                     <i class="fas fa-layer-group"></i> Message Queue
                 </div>
             </div>
         </aside>
 
         <!-- Main Drafting Board -->
-        <main class="crdt-workspace" id="workspace">
+        <main class="crdt-workspace" id="workspace" aria-label="Collaborative whiteboard canvas">
             
             <!-- Connection Lines Layer -->
-            <svg class="connections-layer" id="connectionLayer">
+            <svg class="connections-layer" id="connectionLayer" aria-hidden="true">
                 <path class="temp-connection hidden" id="tempLine" d="M0,0 L0,0"></path>
                 <!-- Permanent CRDT lines injected here -->
             </svg>
             
             <!-- Nodes Layer -->
-            <div class="nodes-layer" id="nodesLayer">
-                <!-- CRDT Nodes injected here -->
-            </div>
+            <div class="nodes-layer" id="nodesLayer" aria-label="Whiteboard components"></div>
 
             <!-- Remote Cursors Layer (Awareness) -->
-            <div class="cursors-layer" id="cursorsLayer">
+            <div class="cursors-layer" id="cursorsLayer" aria-hidden="true">
                 <!-- Remote cursors injected here -->
+            </div>
+
+            <div class="workspace-hint" aria-hidden="true">
+                <span><i class="fas fa-hand-pointer"></i> Drag components</span>
+                <span><i class="fas fa-bezier-curve"></i> Connect ports</span>
+                <span><i class="fas fa-mouse-pointer"></i> Click line to delete</span>
+                <span><i class="fas fa-trash-alt"></i> Double-click node to delete</span>
             </div>
 
             <div class="workspace-placeholder" id="workspacePlaceholder">
