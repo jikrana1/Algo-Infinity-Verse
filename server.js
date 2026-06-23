@@ -597,12 +597,13 @@ async function handleApi(req, res, pathname) {
         const projectId = process.env.FIREBASE_PROJECT_ID;
         const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
         const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+        if (!projectId) {
+          return sendJson(res, 500, { error: "Firebase is not configured for authentication." });
+        }
         if (clientEmail && privateKey) {
           initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
-        } else if (projectId) {
-          initializeApp({ projectId });
         } else {
-          return sendJson(res, 500, { error: "Firebase is not configured for authentication." });
+          initializeApp({ projectId });
         }
       }
 
@@ -610,6 +611,7 @@ async function handleApi(req, res, pathname) {
       try {
         decoded = await getAuth().verifyIdToken(idToken);
       } catch (verifyError) {
+        console.error("Token verification failed:", verifyError.message);
         return sendJson(res, 401, { error: "Invalid token" });
       }
 
@@ -1442,10 +1444,14 @@ async function serveStatic(req, res, pathname) {
       : filePath;
     const ext = path.extname(target);
     const content = await fs.readFile(target);
-    res.writeHead(200, {
+    const headers = {
       "Content-Type": mimeTypes[ext] || "application/octet-stream",
       "X-Content-Type-Options": "nosniff",
-    });
+    };
+    if (ext === ".html") {
+      headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups";
+    }
+    res.writeHead(200, headers);
     res.end(content);
   } catch {
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
