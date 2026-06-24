@@ -148,8 +148,12 @@ async function seed() {
 
   const batch = firestore.batch();
   for (const problem of problems) {
-    const ref = firestore.collection("problems").doc();
-    batch.set(ref, { ...problem, createdAt: new Date() });
+    const problemId = problem.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const ref = firestore.collection(COLLECTIONS.PROBLEMS).doc(problemId);
+    batch.set(ref, { ...problem, createdAt: new Date() }, { merge: true });
   }
 
   await batch.commit();

@@ -77,7 +77,11 @@ function renderBattleState(battle) {
 
       if (problemTitle) problemTitle.textContent = battle.problemTitle || "Battle Problem";
       if (problemDesc)  problemDesc.textContent  = battle.problemDescription || "";
-      if (opponentEl)   opponentEl.textContent   = battle.player2;
+      if (opponentEl) {
+        const opponentId =
+          battle.player1 === currentUserId ? battle.player2 : battle.player1;
+        opponentEl.textContent = opponentId || "Opponent";
+      }
       if (difficultyEl) difficultyEl.textContent = battle.difficulty;
 
       // Server owns the time — display what it says is left
