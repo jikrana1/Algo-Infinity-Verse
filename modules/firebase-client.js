@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged, getRedirectResult } from "firebase/auth";
 
 let configPromise = null;
 let app = null;
@@ -44,13 +44,21 @@ async function ensureAuth() {
   return auth;
 }
 
+export async function getRedirectUser() {
+  const authInstance = await ensureAuth();
+  const result = await getRedirectResult(authInstance);
+  if (result?.user) {
+    const idToken = await result.user.getIdToken();
+    return { idToken, user: result.user };
+  }
+  return null;
+}
+
 export async function signInWithGoogle() {
   const authInstance = await ensureAuth();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-  const result = await signInWithPopup(authInstance, provider);
-  const idToken = await result.user.getIdToken();
-  return { idToken, user: result.user };
+  await signInWithRedirect(authInstance, provider);
 }
 
 export async function signOutUser() {
@@ -82,4 +90,4 @@ export function isConfigured() {
   return auth !== null;
 }
 
-window.__firebaseClient = { signInWithGoogle, signOutUser, getCurrentUser, onAuthChange, getIdToken, isConfigured };
+window.__firebaseClient = { signInWithGoogle, getRedirectUser, signOutUser, getCurrentUser, onAuthChange, getIdToken, isConfigured };
