@@ -211,7 +211,7 @@
 
           if (!response.ok) throw new Error("Logout failed.");
 
-          if (window.__firebaseClient) {
+    if (!currentSession.authenticated && window.__firebaseClient) {
             try { await window.__firebaseClient.signOutUser(); } catch (e) { /* ignore */ }
           }
         } catch (error) {
@@ -506,21 +506,42 @@
 
     if (window.__firebaseClient) {
       try {
-        const redirectResult = await window.__firebaseClient.getRedirectUser();
-        if (redirectResult?.idToken) {
+        let redirectResult = await window.__firebaseClient.getRedirectUser();
+        let idToken = redirectResult?.idToken;
+
+        if (!idToken) {
+          const currentUser = window.__firebaseClient.getCurrentUser();
+          if (currentUser) {
+            try {
+              idToken = await currentUser.getIdToken();
+            } catch (tokenError) {
+              console.warn("Failed to get ID token from current user:", tokenError);
+            }
+          }
+        }
+
+        if (idToken) {
           const response = await fetch("/api/auth/google", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken: redirectResult.idToken }),
+            body: JSON.stringify({ idToken }),
           });
           if (response.ok) {
             const payload = await response.json();
             currentSession = { authenticated: true, user: payload.user };
             window.algoAuth = currentSession;
+            document.documentElement.classList.remove("auth-unverified");
+            document.documentElement.classList.add("auth-verified");
+            renderAuthNav();
+            updateProfileNames(currentSession.user);
+          } else {
+            const text = await response.text();
+            console.warn("Google auth failed:", response.status, text);
           }
         }
-      } catch (e) {
+      } catch (error) {
+        console.warn("Google redirect auth error:", error);
       }
     }
 

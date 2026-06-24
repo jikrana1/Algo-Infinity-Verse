@@ -46,12 +46,43 @@ async function ensureAuth() {
 
 export async function getRedirectUser() {
   const authInstance = await ensureAuth();
+
   const result = await getRedirectResult(authInstance);
   if (result?.user) {
-    const idToken = await result.user.getIdToken();
-    return { idToken, user: result.user };
+    try {
+      const idToken = await result.user.getIdToken();
+      return { idToken, user: result.user };
+    } catch (e) {
+      console.warn("getIdToken from redirect result failed:", e);
+    }
   }
-  return null;
+
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
+      if (resolved) return;
+      if (user) {
+        resolved = true;
+        unsubscribe();
+        try {
+          const idToken = await user.getIdToken();
+          resolve({ idToken, user });
+        } catch (tokenError) {
+          console.warn("getIdToken from onAuthStateChanged failed:", tokenError);
+          resolve(null);
+        }
+      }
+    });
+
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        unsubscribe();
+        resolve(null);
+      }
+    }, 3000);
+  });
 }
 
 export async function signInWithGoogle() {
