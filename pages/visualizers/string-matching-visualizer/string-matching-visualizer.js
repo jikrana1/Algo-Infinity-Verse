@@ -662,4 +662,4 @@ function smInit() {
 
   // Initial render
   smReset();
-}
+}}
