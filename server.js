@@ -2907,11 +2907,7 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
-// The HTTP request handler. Exported so it can be reused as a Vercel
-// serverless catch-all (see api/[...path].js) — on Vercel server.js is never
-// run as a long-lived process, so the catch-all delegates here to make every
-// server-defined /api/* route available in production.
-async function requestHandler(req, res) {
+const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const pathname = normalizePathname(decodeURIComponent(url.pathname));
@@ -2943,9 +2939,7 @@ async function requestHandler(req, res) {
     console.error(error);
     sendJson(res, 500, { error: "Something went wrong." });
   }
-}
-
-const server = http.createServer(requestHandler);
+});
 
 // ===== CODE ANALYSIS ENGINE =====
 // Used by the POST /api/predict-acceptance route in handleApi().
@@ -3385,7 +3379,7 @@ socket.on('voice-ice', ({ roomId, candidate, to, from }) => {
 });
 // -----------------------------------------
 
-export { server, requestHandler, hashPassword, passwordMatches, applySM2, validateSignup, updateMemoryStore, readMemoryStore };
+export { server, hashPassword, passwordMatches, applySM2, validateSignup, updateMemoryStore, readMemoryStore };
 if (process.env.VERCEL === "1") {
   db = initializeFirebase();
   useFirestore = !!db;
