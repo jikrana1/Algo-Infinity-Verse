@@ -58,7 +58,8 @@ import {
   repoAnalysisLimiter,
   sdlcAdvisorLimiter,
   predictionLimiter,
-  bulkAuditLimiter
+  bulkAuditLimiter,
+  complexityAnalysisLimiter
 } from "./backend/utils/rateLimiter.js";
 import { applySM2 } from "./backend/services/memory.service.js";
 import { sendVerificationEmail } from "./backend/services/email.service.js";
@@ -71,6 +72,7 @@ import {
 } from "./pages/Dsa-Battle/Battleservice.js";
 
 import { instrumentJS } from "./modules/code-tracer.js";
+import { analyzeComplexity } from "./modules/complexity-analyzer.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -549,6 +551,24 @@ async function handleApi(req, res, pathname) {
     const isProd = process.env.NODE_ENV === "production";
     const cookieString = `csrfSecret=${secret}; HttpOnly; ${isProd ? "Secure; " : ""}SameSite=Strict; Path=/; Max-Age=3600`;
     return sendJson(res, 200, { csrfToken: token }, { "Set-Cookie": cookieString });
+  }
+
+  if (pathname === "/api/analyze-complexity" && req.method === "POST") {
+    if (!applyRateLimit(req, res, complexityAnalysisLimiter, "Too many complexity analysis requests. Please try again later.")) {
+      return;
+    }
+    try {
+      const payload = await readJsonBody(req);
+      const code = payload.code || "";
+      if (!code) {
+        return sendJson(res, 400, { error: "No code provided." });
+      }
+      const result = analyzeComplexity(code);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      console.error("Error analyzing complexity:", err);
+      return sendJson(res, 500, { error: "Failed to analyze complexity." });
+    }
   }
 
   if (pathname === "/api/log-error" && req.method === "POST") {

@@ -183,6 +183,12 @@ export const sdlcAdvisorLimiter = new RateLimiter({
   cooldownMs: 15 * 60 * 1000,
 });
 
+export const complexityAnalysisLimiter = new RateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxAttempts: 20,
+  cooldownMs: 15 * 60 * 1000,
+});
+
 export const predictionLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000,
   maxAttempts: 30,

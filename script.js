@@ -3804,6 +3804,24 @@ async function executeCode(code, lang, problem) {
     memory: memory || "N/A",
     cpuTime: cpuTime || "N/A"
   };
+
+  if (lang === 'javascript') {
+    if (typeof window.analyzeComplexity !== 'function') {
+      await new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'modules/complexity-client.js';
+        script.onload = resolve;
+        script.onerror = resolve;
+        document.head.appendChild(script);
+      });
+    }
+    if (typeof window.analyzeComplexity === 'function') {
+      const complexity = await window.analyzeComplexity(code);
+      if (complexity) {
+        parsedResults.metrics.complexity = complexity;
+      }
+    }
+  }
   
   return parsedResults;
 }
@@ -3853,9 +3871,11 @@ async function runQuizCode() {
       setOutput(out, "error");
     }
     if (result.metrics && result.metrics.cpuTime) {
-      const metricText = `\n\n⏱️ Execution Time: ${result.metrics.cpuTime} sec\n💾 Memory Used: ${result.metrics.memory} KB`;
+      let metricText = `\n\n⏱️ Execution Time: ${result.metrics.cpuTime} sec\n💾 Memory Used: ${result.metrics.memory} KB`;
+      if (result.metrics.complexity) {
+        metricText += `\n📊 Time Complexity: ${result.metrics.complexity}`;
+      }
       const el = document.getElementById("quizOutputContent");
-      if (el) el.innerHTML += `<pre style="color:var(--accent); margin-top:10px;">${metricText}</pre>`;
       if (el) {
         const metricsEl = document.createElement("pre");
         metricsEl.style.color = "var(--accent)";
