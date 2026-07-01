@@ -1334,7 +1334,8 @@ if (pathname === "/api/session" && req.method === "GET") {
       const password = String(payload.password || "");
       const user = await getUserByEmail(email);
       if (!user || !user.password || !passwordMatches(password, user.password)) {
-        return sendJson(res, 401, { error: "Invalid email or password." });
+       console.warn(`[LOGIN FAILED] ${email}`);
+      return sendJson(res, 401, { error: "Invalid email or password." });
       }
 
       if (!user.emailVerified) {
