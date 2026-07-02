@@ -95,6 +95,7 @@ class QuadTree {
         this.capacity = capacity;
         this.particles = [];
         this.divided = false;
+        this.depth = depth;
     }
 
     insert(particle) {
@@ -102,7 +103,7 @@ class QuadTree {
             return false;
         }
 
-        if (this.particles.length < this.capacity) {
+        if (this.particles.length < this.capacity || this.depth >= 8) {
             this.particles.push(particle);
             return true;
         } else {
@@ -114,6 +115,7 @@ class QuadTree {
             if (this.northwest.insert(particle)) return true;
             if (this.southeast.insert(particle)) return true;
             if (this.southwest.insert(particle)) return true;
+            return false;
         }
     }
 
@@ -124,16 +126,17 @@ class QuadTree {
         let h = this.boundary.h / 2;
 
         let ne = new Rectangle(x + w, y - h, w, h);
-        this.northeast = new QuadTree(ne, this.capacity);
+        this.northeast = new QuadTree(ne, this.capacity, this.depth + 1);
         let nw = new Rectangle(x - w, y - h, w, h);
-        this.northwest = new QuadTree(nw, this.capacity);
+        this.northwest = new QuadTree(nw, this.capacity, this.depth + 1);
         let se = new Rectangle(x + w, y + h, w, h);
-        this.southeast = new QuadTree(se, this.capacity);
+        this.southeast = new QuadTree(se, this.capacity, this.depth + 1);
         let sw = new Rectangle(x - w, y + h, w, h);
-        this.southwest = new QuadTree(sw, this.capacity);
+        this.southwest = new QuadTree(sw, this.capacity, this.depth + 1);
 
         this.divided = true;
     }
+}
 
     query(range, found) {
         if (!found) found = [];
