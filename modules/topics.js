@@ -144,15 +144,38 @@ window.closeTopicModal = closeTopicModal;
 window.selectSampleProblem = selectSampleProblem;
 
 
+function getUserProgress() {
+  return window.userProgress || {};
+}
+
+function saveUserProgress() {
+  if (typeof window.saveUserData === 'function') {
+    window.saveUserData();
+  }
+}
+
+function getCompletedTopics() {
+  const dsaTopics = window.dsaTopics || [];
+  const userProgress = getUserProgress();
+  const categoryMap = { Arrays: "arrays", Strings: "strings", "Linked List": "linkedlist", Trees: "trees", Graphs: "graphs", "Dynamic Programming": "dp" };
+  return dsaTopics.filter(topic => {
+    const category = categoryMap[topic.name];
+    return category && userProgress.completedTopics && userProgress.completedTopics.includes(category);
+  });
+}
+
 // Export functions
 export { 
-    renderTopicCards, 
-    updateTopicProgress, 
-    getTopicProgress, 
-    isTopicCompleted,
-    getUserProgress,
-    saveUserProgress,
-    getCompletedTopics
+  getTopicProgress, 
+  getUserProgress,
+  saveUserProgress,
+  getCompletedTopics,
+  initTopicOfTheDay,
+  initTopicsSection,
+  getDailyTopic,
+  getDifficultyClass,
+  getQuizTopicKey,
+  openTopicModal,
+  closeTopicModal,
+  selectSampleProblem
 };
-
-export { initTopicOfTheDay, initTopicsSection, getDailyTopic, getTopicProgress, getDifficultyClass, getQuizTopicKey, openTopicModal, closeTopicModal, selectSampleProblem };

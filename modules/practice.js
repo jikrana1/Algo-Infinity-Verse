@@ -44,7 +44,7 @@ function initPracticeSection() {
         aiRecommendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding...';
         aiRecommendBtn.disabled = true;
         const res = await fetch("/api/recommendations/next", { credentials: "include" });
-        if (res.status === 401) { alert("Please log in to get AI recommendations."); return; }
+        if (res.status === 401) return;
         const data = await res.json();
         if (data.success && data.recommendation) {
           const rec = data.recommendation;
