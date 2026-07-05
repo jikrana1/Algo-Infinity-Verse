@@ -1938,6 +1938,104 @@ function updateFreezeHistoryList() {
 function updateBadges() {
   const container = document.getElementById("badgesContainer");
   const grid = document.getElementById("badgesGrid");
+
+  const badges = [
+    {
+      id: 1,
+      icon: "🌟",
+      name: "First Steps",
+      description: "Begin your journey",
+      criteria: "Solve 1 problem",
+      earned: userProgress.completedProblems.length >= 1,
+    },
+    {
+      id: 2,
+      icon: "🔥",
+      name: "On Fire",
+      description: "Keep the momentum going",
+      criteria: "Maintain a 7-day streak",
+      earned: userProgress.streak >= 7,
+    },
+    {
+      id: 3,
+      icon: "💎",
+      name: "Diamond",
+      description: "Reach a major XP milestone",
+      criteria: "Earn 5,000 XP",
+      earned: userProgress.xp >= 5000,
+    },
+    {
+      id: 4,
+      icon: "🚀",
+      name: "Rocket",
+      description: "Speed through problems",
+      criteria: "Solve 50 problems",
+      earned: userProgress.completedProblems.length >= 50,
+    },
+    {
+      id: 5,
+      icon: "👑",
+      name: "Master",
+      description: "Achieve expert problem-solving",
+      criteria: "Solve 100 problems",
+      earned: userProgress.completedProblems.length >= 100,
+    },
+    {
+      id: 6,
+      icon: "🎯",
+      name: "Sharpshooter",
+      description: "Hit the target with consistency",
+      criteria: "Solve 25 problems and earn 2,500 XP",
+      earned:
+        userProgress.completedProblems.length >= 25 && userProgress.xp >= 2500,
+    },
+  ];
+
+  // Update userProgress badges
+  const newlyEarned = badges.filter((b) => b.earned).map((b) => b.id);
+
+  // Only save if badges changed to avoid unnecessary saves
+  const badgesChanged =
+    JSON.stringify(newlyEarned) !== JSON.stringify(userProgress.badges);
+  userProgress.badges = newlyEarned;
+  if (badgesChanged) {
+    saveUserData();
+  }
+
+  // Dashboard badges
+  if (container) {
+  container.innerHTML = badges
+    .map(
+      (badge) =>
+        `<div class="badge ${badge.earned ? "" : "locked"}" tabindex="0" aria-label="${badge.name}: ${badge.description}. ${badge.criteria}">
+            ${badge.icon}
+            <span class="badge-tooltip">
+              <strong>${badge.name}</strong>
+              <span>${badge.description}</span>
+              <span>${badge.criteria}</span>
+            </span>
+        </div>`,
+    )
+    .join("");
+  }
+
+  // Gamification section badges
+  if (grid) {
+  grid.innerHTML = badges
+    .map(
+      (badge) =>
+        `<div class="badge-lg ${badge.earned ? "earned" : "locked"}" 
+          tabindex="0" 
+          title="${badge.name}: ${badge.criteria}"
+          onclick="${badge.earned ? "" : `showNotification('🔒 ${badge.criteria}', 'info')`}">
+          <span class="badge-icon">${badge.icon}</span>
+          <span class="badge-name">${badge.name}</span>
+          <span class="badge-criteria">${badge.earned ? "✅ Earned!" : badge.criteria}</span>
+        </div>`,
+    )
+    .join("");
+    
+  }
   const badges = [{ id: 1, icon: "🌟", name: "First Steps", description: "Begin your journey", criteria: "Solve 1 problem", earned: userProgress.completedProblems.length >= 1 }, { id: 2, icon: "🔥", name: "On Fire", description: "Keep the momentum going", criteria: "Maintain a 7-day streak", earned: userProgress.streak >= 7 }, { id: 3, icon: "💎", name: "Diamond", description: "Reach a major XP milestone", criteria: "Earn 5,000 XP", earned: userProgress.xp >= 5000 }, { id: 4, icon: "🚀", name: "Rocket", description: "Speed through problems", criteria: "Solve 50 problems", earned: userProgress.completedProblems.length >= 50 }, { id: 5, icon: "👑", name: "Master", description: "Achieve expert problem-solving", criteria: "Solve 100 problems", earned: userProgress.completedProblems.length >= 100 }, { id: 6, icon: "🎯", name: "Sharpshooter", description: "Hit the target with consistency", criteria: "Solve 25 problems and earn 2,500 XP", earned: userProgress.completedProblems.length >= 25 && userProgress.xp >= 2500 }];
   const earned = badges.filter(b => b.earned).map(b => b.id);
   if (JSON.stringify(earned) !== JSON.stringify(userProgress.badges)) { userProgress.badges = earned; saveUserData(); }
@@ -2040,6 +2138,82 @@ function checkLevelUp() {
   if (levelBadge) levelBadge.textContent = `Level ${newLevel} - ${levelNames[newLevel - 1]}`;
 }
 
+function updateGamification() {
+  updateXPBar();
+  updateBadges();
+  updateStreakDisplay();
+  updateActivityFeed();
+  updateXPStats();
+}
+
+function updateXPStats() {
+  const totalProblems = document.getElementById("totalProblemsCount");
+  const streakEl = document.getElementById("streakCount");
+  const totalXP = document.getElementById("totalXPCount");
+  const nextLevel = document.getElementById("xpNextLevel");
+  const badgesCount = document.getElementById("badgesEarnedCount");
+
+  if (totalProblems) totalProblems.textContent = userProgress.completedProblems.length;
+  if (streakEl) streakEl.textContent = `${userProgress.streak || 0}🔥`;
+  if (totalXP) totalXP.textContent = userProgress.xp || 0;
+
+  const levelNames = ["Beginner","Novice","Intermediate","Advanced","Expert","Master","Grandmaster","Legend"];
+  const currentLevel = userProgress.level || 1;
+  if (nextLevel) nextLevel.textContent = `Next: ${levelNames[currentLevel] || "Legend"}`;
+
+  const earned = userProgress.badges ? userProgress.badges.length : 0;
+  if (badgesCount) badgesCount.textContent = `${earned}/6 earned`;
+}
+
+function updateStreakDisplay() {
+  const streakNum = document.getElementById("streakNumber");
+  const bestStreakEl = document.getElementById("bestStreak");
+  const streakWeek = document.getElementById("streakWeek");
+
+  const streak = userProgress.streak || 0;
+  const bestStreak = userProgress.bestStreak || streak;
+
+  if (streakNum) streakNum.textContent = streak;
+  if (bestStreakEl) bestStreakEl.textContent = bestStreak;
+
+  if (streakWeek) {
+    const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const today = new Date().getDay();
+    streakWeek.innerHTML = days.map((day, i) => {
+      const isActive = i < streak && i <= today;
+      return `
+        <div class="streak-day ${isActive ? "active" : "inactive"}">
+          <span>${isActive ? "🔥" : "○"}</span>
+          <span>${day}</span>
+        </div>
+      `;
+    }).join("");
+  }
+}
+
+function updateActivityFeed() {
+  const activityList = document.getElementById("activityList");
+  if (!activityList) return;
+
+  const completed = userProgress.completedProblems || [];
+  if (completed.length === 0) {
+    activityList.innerHTML = `<p class="activity-empty">No activity yet. Start solving problems! 🚀</p>`;
+    return;
+  }
+
+  const recent = completed.slice(-5).reverse();
+  activityList.innerHTML = recent.map(id => {
+    const problem = practiceProblems.find(p => p.id === id);
+    if (!problem) return "";
+    const xp = getXPForDifficulty(problem.difficulty);
+    return `
+      <div class="activity-item">
+        <span class="activity-name">✅ ${problem.title}</span>
+        <span class="activity-xp">+${xp} XP</span>
+      </div>
+    `;
+  }).join("");
+}
 function updateGamification() { updateXPBar(); updateBadges(); }
 
 function showNotification(message, type = "info") {
