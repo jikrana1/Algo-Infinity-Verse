@@ -65,11 +65,7 @@ export async function handleSignup(req, res) {
   
   if (existing) {
     await normalizeAuthDelay();
-    console.warn("[signup] duplicate email attempt", {
-      email,
-      ip: getClientIdentifier(req),
-      at: new Date().toISOString(),
-    });
+    void 0;
     return sendJson(res, 200, { ok: true });
   }
 
@@ -94,8 +90,20 @@ export async function handleSignup(req, res) {
 }
 
 export async function handleLogin(req, res) {
-  if (!applyRateLimit(req, res, loginLimiter, "Too many login attempts. Please try again later.")) {
-    return;
+  const clientId = getClientIdentifier(req);
+
+  if (isLoginRateLimited(clientId)) {
+    void 0;
+    await normalizeAuthDelay();
+    return sendJson(
+      res,
+      429,
+      {
+        error: "Too many failed login attempts. Please wait 15 minutes before trying again.",
+        retryAfterSeconds: Math.ceil(LOGIN_WINDOW_MS / 1000),
+      },
+      { "Retry-After": String(Math.ceil(LOGIN_WINDOW_MS / 1000)) },
+    );
   }
 
   const payload = await readJsonBody(req);

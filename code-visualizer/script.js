@@ -823,7 +823,14 @@ function renderCertificatesDashboard(tracks) {
         // Automatically uses structural records cleanly 
         downloadCertificatePDF("Prasiddhi Mishra", track.topicName, track.completionDate, track.certificateId);
       } else {
-        console.warn("Alert:", "This roadmap track is not fully completed yet.");
+        downloadBtn.textContent = '⚠ Track not completed';
+        downloadBtn.style.background = '#6b7280';
+        downloadBtn.disabled = true;
+        setTimeout(() => {
+          downloadBtn.textContent = 'Download PDF';
+          downloadBtn.style.background = '#667eea';
+          downloadBtn.disabled = false;
+        }, 3000);
       }
     });
 
