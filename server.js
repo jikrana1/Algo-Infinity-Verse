@@ -1484,8 +1484,11 @@ async function handleApi(req, res, pathname) {
       }, { "Set-Cookie": cookie });
 
     } catch (error) {
-      console.error("Supabase auth error:", error.message || error);
-      return sendJson(res, 500, { error: "Internal server error" });
+      console.error("Supabase auth error:", error && error.stack ? error.stack : error);
+      return sendJson(res, 500, {
+        error: "Internal server error",
+        detail: error?.message || String(error),
+      });
     }
   }
 
