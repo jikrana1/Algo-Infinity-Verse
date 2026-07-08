@@ -541,8 +541,8 @@ async function readJsonBody(req) {
 }
 
 function sendJson(res, status, body, headers = {}) {
-  // Note: COOP header omitted to allow Firebase signInWithPopup to access popup.closed
-  // when opening cross-origin OAuth popups (Google, etc.)
+  // Note: COOP header omitted so the browser can read popup/redirect state for
+  // cross-origin OAuth flows (Supabase Google sign-in).
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     ...headers,
@@ -861,6 +861,21 @@ async function handleApi(req, res, pathname) {
       storageBucket,
       messagingSenderId,
       appId,
+    });
+  }
+
+  if (pathname === "/api/supabase-config" && req.method === "GET") {
+    const url = process.env.SUPABASE_URL;
+    const anonKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!url || !anonKey) {
+      return sendJson(res, 503, { configured: false, error: "Supabase not configured" });
+    }
+
+    return sendJson(res, 200, {
+      configured: true,
+      url,
+      anonKey,
     });
   }
 
@@ -1236,101 +1251,148 @@ async function handleApi(req, res, pathname) {
     }
   }
 
-  if (pathname === "/api/auth/google" && req.method === "POST") {
-    if (!process.env.FIREBASE_PROJECT_ID) {
-      return sendJson(res, 500, { error: "Firebase is not configured for authentication. Set FIREBASE_PROJECT_ID environment variable." });
+  // ── Supabase JWT verification (HS256, signed with SUPABASE_JWT_SECRET) ─────
+  function base64UrlDecode(str) {
+    const normalized = str.replace(/-/g, "+").replace(/_/g, "/");
+    return Buffer.from(normalized, "base64");
+  }
+
+  function verifySupabaseJwt(token) {
+    const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error("Supabase JWT secret not configured");
+    }
+
+    const parts = String(token).split(".");
+    if (parts.length !== 3) {
+      throw new Error("Malformed JWT");
+    }
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    let header;
+    try {
+      header = JSON.parse(base64UrlDecode(headerB64).toString("utf8"));
+    } catch {
+      throw new Error("Invalid JWT header");
+    }
+
+    if (header.alg !== "HS256") {
+      throw new Error("Unexpected JWT algorithm");
+    }
+
+    const expected = crypto
+      .createHmac("sha256", jwtSecret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest();
+    const provided = base64UrlDecode(signatureB64);
+
+    if (
+      expected.length !== provided.length ||
+      !crypto.timingSafeEqual(expected, provided)
+    ) {
+      throw new Error("Invalid JWT signature");
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(base64UrlDecode(payloadB64).toString("utf8"));
+    } catch {
+      throw new Error("Invalid JWT payload");
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp === "number" && payload.exp < now) {
+      throw new Error("JWT expired");
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    if (supabaseUrl) {
+      const base = supabaseUrl.replace(/\/+$/, "");
+      if (payload.iss && !String(payload.iss).startsWith(base)) {
+        throw new Error("Invalid JWT issuer");
+      }
+      if (payload.aud !== "authenticated") {
+        throw new Error("Invalid JWT audience");
+      }
+    }
+
+    return payload;
+  }
+
+  if (pathname === "/api/auth/supabase" && req.method === "POST") {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_JWT_SECRET) {
+      return sendJson(res, 500, { error: "Supabase is not configured for authentication. Set SUPABASE_URL and SUPABASE_JWT_SECRET environment variables." });
     }
 
     try {
       const body = await readJsonBody(req);
-      const { idToken } = body;
-      if (!idToken) {
-        return sendJson(res, 400, { error: "Missing idToken" });
+      const { accessToken } = body;
+      if (!accessToken) {
+        return sendJson(res, 400, { error: "Missing accessToken" });
       }
 
-      let decoded;
+      let claims;
       try {
-        // Cryptographically verify the Google ID token with the Firebase Admin
-        // SDK. verifyIdToken checks the RS256 signature against Google's public
-        // keys and validates the aud (project id), iss
-        // (securetoken.google.com/<project>) and exp claims — far stronger than
-        // the previous Identity Toolkit REST lookup with the public API key.
-        const { getAuth } = await import("firebase-admin/auth");
-        const decodedToken = await getAuth().verifyIdToken(idToken);
-        decoded = {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-          name: decodedToken.name || decodedToken.email,
-          picture: decodedToken.picture || null,
-          emailVerified: decodedToken.email_verified === true,
-        };
+        // Cryptographically verify the Supabase access token (HS256) using the
+        // Supabase JWT secret. This validates the signature and the aud/iss/exp
+        // claims — far stronger than trusting an opaque token.
+        claims = verifySupabaseJwt(accessToken);
       } catch (verifyError) {
-        console.error("Token verification failed:", verifyError.message);
+        console.error("Supabase token verification failed:", verifyError.message);
         return sendJson(res, 401, { error: "Invalid token" });
       }
 
-      // Enforce a Google-verified email. Only an email Google itself has
-      // verified is trusted, which is what makes the email-based account
-      // matching below safe from takeover.
-      if (!decoded.email) {
-        return sendJson(res, 400, { error: "Google token has no email." });
-      }
-      if (!decoded.emailVerified) {
-        return sendJson(res, 403, { error: "Google account email is not verified." });
+      const sub = claims.sub;
+      const email = claims.email;
+      if (!sub || !email) {
+        return sendJson(res, 400, { error: "Supabase token has no user identity." });
       }
 
-      const { uid, email, name, picture } = decoded;
-      const cleanEmail = (email || "").toLowerCase().trim();
-      const displayName = name || cleanEmail.split("@")[0] || "Learner";
+      // Enforce a Supabase-verified email. Only an email the provider has
+      // verified is trusted, which makes the email-based account matching
+      // below safe from takeover.
+      if (!claims.email_verified) {
+        return sendJson(res, 403, { error: "Supabase account email is not verified." });
+      }
 
-      let user = null;
-      if (!useFirestore) {
-        return sendJson(res, 503, { error: "User accounts require Firebase Firestore in serverless mode. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY environment variables." });
-      }
-      const snapshot = await db
-        .collection(COLLECTIONS.USERS)
-        .where("firebaseUid", "==", uid)
-        .limit(1)
-        .get();
-      if (!snapshot.empty) {
-        user = { ...snapshot.docs[0].data(), id: snapshot.docs[0].id };
-      } else {
-        const emailSnapshot = await db
-          .collection(COLLECTIONS.USERS)
-          .where("email", "==", cleanEmail)
-          .limit(1)
-          .get();
-        if (!emailSnapshot.empty) {
-          const existing = { ...emailSnapshot.docs[0].data(), id: emailSnapshot.docs[0].id };
-          // Only link to an account that is itself Google-provisioned. Silently
-          // merging a Google login into a password account would let anyone with
-          // a matching Google address take it over (local signups are not
-          // email-verified), so require the user to sign in with their password.
-          const isGoogleAccount = existing.authProvider === "google" || !!existing.firebaseUid;
-          if (!isGoogleAccount) {
-            return sendJson(res, 409, {
-              error: "An account with this email already exists. Please sign in with your password.",
-            });
-          }
-          user = existing;
-        }
-      }
+      const meta = claims.user_metadata || {};
+      const cleanEmail = email.toLowerCase().trim();
+      const displayName =
+        meta.full_name || meta.name || cleanEmail.split("@")[0] || "Learner";
+      const picture = meta.avatar_url || meta.picture || null;
+
+      let user = await getUserByEmail(cleanEmail);
 
       if (user) {
         user.name = displayName;
         user.avatar = picture || user.avatar;
         user.lastLogin = new Date().toISOString();
-        if (!user.firebaseUid) user.firebaseUid = uid;
+        if (!user.supabaseId) user.supabaseId = sub;
         if (!user.authProvider) user.authProvider = "google";
-        await db.collection(COLLECTIONS.USERS).doc(user.id).update({
-          name: displayName, avatar: picture || null,
-          lastLogin: new Date().toISOString(),
-          firebaseUid: uid, authProvider: "google",
-        });
+
+        if (useFirestore) {
+          await db.collection(COLLECTIONS.USERS).doc(user.id).update({
+            name: displayName,
+            avatar: picture || null,
+            lastLogin: new Date().toISOString(),
+            supabaseId: sub,
+            authProvider: "google",
+          });
+        } else {
+          const users = await readUsers();
+          const index = users.findIndex((u) => u.id === user.id);
+          if (index !== -1) {
+            users[index] = user;
+            await writeUsers(users);
+          }
+        }
       } else {
         const newUser = {
-          id: uid, name: displayName, email: cleanEmail,
-          avatar: picture || null, firebaseUid: uid,
+          id: sub,
+          name: displayName,
+          email: cleanEmail,
+          avatar: picture || null,
+          supabaseId: sub,
           authProvider: "google",
           createdAt: new Date().toISOString(),
           lastLogin: new Date().toISOString(),
@@ -1348,7 +1410,7 @@ async function handleApi(req, res, pathname) {
       }, { "Set-Cookie": cookie });
 
     } catch (error) {
-      console.error("Google auth error:", error.message || error);
+      console.error("Supabase auth error:", error.message || error);
       return sendJson(res, 500, { error: "Internal server error" });
     }
   }
@@ -1588,25 +1650,21 @@ if (pathname === "/api/forgot-password" && req.method === "POST") {
     }
 
     try {
-      const { initializeApp, getApps } = await import("firebase/app");
-      const { getAuth, sendPasswordResetEmail } = await import("firebase/auth");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-      const firebaseConfig = {
-        apiKey: process.env.FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID,
-      };
-
-      if (firebaseConfig.projectId) {
-        const existingApps = getApps();
-        const clientApp = existingApps.find(a => a.name === "reset-client") ||
-          initializeApp(firebaseConfig, "reset-client");
-
-        const auth = getAuth(clientApp);
-        await sendPasswordResetEmail(auth, email);
+      if (supabaseUrl && supabaseAnonKey) {
+        // Delegate password reset to Supabase (GoTrue). It returns 200
+        // regardless of whether the account exists, preventing enumeration.
+        await fetch(`${supabaseUrl.replace(/\/+$/, "")}/auth/v1/recover`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ email }),
+        });
       }
     } catch (err) {
       // Silently fail — don't expose whether email exists
