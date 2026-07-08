@@ -1330,6 +1330,40 @@ async function handleApi(req, res, pathname) {
     return payload;
   }
 
+  // Upsert a user into Supabase Postgres via the PostgREST API (no extra
+  // dependency). Uses the service-role key so it can write regardless of RLS.
+  // This is the storage path used on serverless/Vercel, where the local
+  // filesystem is read-only and Firestore may be unconfigured.
+  async function upsertSupabaseUser(record, serviceKey, supabaseUrl) {
+    const base = (supabaseUrl || "").replace(/\/+$/, "");
+    const res = await fetch(`${base}/rest/v1/users?on_conflict=email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        Prefer: "resolution=merge-upsert",
+      },
+      body: JSON.stringify([
+        {
+          id: record.id,
+          email: record.email,
+          name: record.name,
+          avatar: record.avatar,
+          supabase_id: record.supabaseId,
+          auth_provider: record.authProvider,
+          last_login: record.lastLogin,
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`status ${res.status}: ${text}`);
+    }
+    return res.json();
+  }
+
   if (pathname === "/api/auth/supabase" && req.method === "POST") {
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_JWT_SECRET) {
       return sendJson(res, 500, { error: "Supabase is not configured for authentication. Set SUPABASE_URL and SUPABASE_JWT_SECRET environment variables." });
@@ -1372,44 +1406,73 @@ async function handleApi(req, res, pathname) {
         meta.full_name || meta.name || cleanEmail.split("@")[0] || "Learner";
       const picture = meta.avatar_url || meta.picture || null;
 
-      let user = await getUserByEmail(cleanEmail);
-
-      if (user) {
-        user.name = displayName;
-        user.avatar = picture || user.avatar;
-        user.lastLogin = new Date().toISOString();
-        if (!user.supabaseId) user.supabaseId = sub;
-        if (!user.authProvider) user.authProvider = "google";
-
-        if (useFirestore) {
-          await db.collection(COLLECTIONS.USERS).doc(user.id).update({
+      // Build the user record from the verified Supabase claims. Persistence is
+      // best-effort only: on serverless (Vercel) the filesystem is read-only and
+      // Firestore may be unconfigured, but the session JWT below already encodes
+      // the identity, so login must still succeed.
+      const existing = await getUserByEmail(cleanEmail).catch(() => null);
+      const userRecord = existing
+        ? {
+            ...existing,
             name: displayName,
-            avatar: picture || null,
+            avatar: picture || existing.avatar,
             lastLogin: new Date().toISOString(),
+            supabaseId: existing.supabaseId || sub,
+            authProvider: existing.authProvider || "google",
+          }
+        : {
+            id: sub,
+            name: displayName,
+            email: cleanEmail,
+            avatar: picture || null,
             supabaseId: sub,
             authProvider: "google",
-          });
-        } else {
-          const users = await readUsers();
-          const index = users.findIndex((u) => u.id === user.id);
-          if (index !== -1) {
-            users[index] = user;
-            await writeUsers(users);
-          }
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+          };
+
+      // Persist the user. Prefer Supabase Postgres (writable from serverless /
+      // Vercel) when configured; otherwise best-effort Firestore / JSON store.
+      // Login still succeeds via the session JWT regardless of persistence.
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const supabaseUrl = process.env.SUPABASE_URL;
+      if (supabaseKey && supabaseUrl) {
+        try {
+          await upsertSupabaseUser(userRecord, supabaseKey, supabaseUrl);
+        } catch (persistError) {
+          console.error("Supabase user persistence failed:", persistError.message);
         }
       } else {
-        const newUser = {
-          id: sub,
-          name: displayName,
-          email: cleanEmail,
-          avatar: picture || null,
-          supabaseId: sub,
-          authProvider: "google",
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        };
-        user = await createUser(newUser);
+        try {
+          if (existing) {
+            if (useFirestore) {
+              await db
+                .collection(COLLECTIONS.USERS)
+                .doc(existing.id)
+                .update({
+                  name: displayName,
+                  avatar: picture || null,
+                  lastLogin: new Date().toISOString(),
+                  supabaseId: sub,
+                  authProvider: "google",
+                });
+            } else {
+              const users = await readUsers();
+              const index = users.findIndex((u) => u.id === existing.id);
+              if (index !== -1) {
+                users[index] = userRecord;
+                await writeUsers(users);
+              }
+            }
+          } else {
+            await createUser(userRecord);
+          }
+        } catch (persistError) {
+          console.error("User persistence skipped:", persistError.message);
+        }
       }
+
+      const user = userRecord;
 
       const token = createAccessToken(user);
       const refreshToken = await createRefreshToken(user);
