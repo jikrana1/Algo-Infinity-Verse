@@ -16,7 +16,7 @@ export function validateAndNormalizeEmail(email) {
   }
 
   // Stronger Regex (supports + signs, subdomains, new TLDs)
-  const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(normalized)) {
     return { valid: false, normalizedEmail: normalized, error: 'Enter a valid email address.' };
   }
