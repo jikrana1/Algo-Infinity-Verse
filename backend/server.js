@@ -12,7 +12,7 @@ import { setupApiRoutes } from "./routes/apiRoutes.js";
 import { CodingPersonalityAnalyzer } from "./personalityAnalyzer.js";
 import { applySM2 } from "./utils/sm2.js";
 import { getSession, clearSessionCookie } from "./utils/sessionToken.js";
-
+import { commonPasswords } from "./config/passwordBlacklist.js";
 const MAX_RESUME_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -338,30 +338,6 @@ function validateSignup({ name, email, password, confirmPassword }) {
   }
 
   // Common weak passwords check
-  const commonPasswords = [
-    "password123",
-    "password1234",
-    "password12345",
-    "12345678",
-    "123456789",
-    "qwerty123",
-    "qwertyuiop",
-    "admin123",
-    "letmein123",
-    "welcome123",
-    "monkey123",
-    "1234567890",
-    "abcdefgh",
-    "abc12345",
-    "password1",
-    "passw0rd",
-    "p@ssw0rd",
-    "P@ssw0rd",
-    "Password123",
-    "Password123!",
-    "Admin@123",
-    "admin@123",
-  ];
   if (commonPasswords.includes(rawPassword.toLowerCase())) {
     return "Password is too common or weak. Please choose a stronger password.";
   }
