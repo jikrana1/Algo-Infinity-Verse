@@ -1,4 +1,5 @@
-import { getClientIdentifier } from './clientIdentifier.js';
+import { getClientIdentifier } from '../services/auth.service.js';
+
 export class RateLimiter {
   constructor(options = {}) {
     this.windowMs = options.windowMs || 15 * 60 * 1000; // 15 mins default
