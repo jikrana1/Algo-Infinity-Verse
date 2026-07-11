@@ -24,6 +24,7 @@ import {
 } from "./utils/helpers.js";
 import { protectedPaths } from "./config/protectedPaths.js";
 import { getClientIdentifier } from "./utils/clientIdentifier.js";
+import { applyRateLimit, signupLimiter, loginLimiter } from "./utils/rateLimiter.js";
 
 const MAX_RESUME_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -54,109 +55,23 @@ const MEMORY_FILE = path.join(DATA_DIR, "memory.json");
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
 
-const signupAttempts = new Map();
 
 // Periodic sweeper — runs every SIGNUP_WINDOW_MS and deletes any identifier
 // whose timestamps have all aged out of the window.  This bounds the Map to
 // only identifiers that have been active within the last window period and
 // prevents unbounded memory growth under a sustained stream of unique IPs.
-const _signupSweeper = setInterval(() => {
-  const now = Date.now();
-  for (const [identifier, timestamps] of signupAttempts) {
-    const fresh = timestamps.filter((t) => now - t < securityConfig.SIGNUP_WINDOW_MS);
-    if (fresh.length === 0) {
-      signupAttempts.delete(identifier);
-    } else {
-      signupAttempts.set(identifier, fresh);
-    }
-  }
-},securityConfig.SIGNUP_WINDOW_MS);
 
 // Allow the process to exit cleanly even while the interval is live
 // (relevant in test environments and graceful-shutdown scenarios).
 if (_signupSweeper.unref) _signupSweeper.unref();
 
-// IPs of reverse-proxies / load-balancers that are allowed to set
-// X-Forwarded-For.  Add your proxy CIDRs / IPs here or populate via
-// the TRUSTED_PROXIES env let (comma-separated) at startup.
-const TRUSTED_PROXIES = new Set(
-  (process.env.TRUSTED_PROXIES || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean),
-);
 
-function isSignupRateLimited(identifier) {
-  const now = Date.now();
-  const attempts = signupAttempts.get(identifier) || [];
-  // Trim stale timestamps on every read so the per-identifier array stays
-  // small even between sweeper runs.
-  const recentAttempts = attempts.filter((t) => now - t <securityConfig.SIGNUP_WINDOW_MS);
-  signupAttempts.set(identifier, recentAttempts);
-  return recentAttempts.length >= securityConfig.SIGNUP_RATE_LIMIT;
-}
-
-function recordSignupAttempt(identifier) {
-  const now = Date.now();
-  const attempts = signupAttempts.get(identifier) || [];
-  // Trim before appending so the array never accumulates beyond
-  // SIGNUP_RATE_LIMIT + 1 entries between sweeper passes.
-  const recentAttempts = attempts.filter((t) => now - t <securityConfig.SIGNUP_WINDOW_MS);
-  recentAttempts.push(now);
-  signupAttempts.set(identifier, recentAttempts);
-}
 
 async function normalizeAuthDelay() {
   return new Promise((resolve) => setTimeout(resolve, securityConfig.AUTH_DELAY_MS));
 }
-// ── Login Rate Limiting (failed attempts only) ──────────────────────────────
-const loginFailures = new Map(); // identifier → [timestamp, ...]
 
-// Periodic sweeper — mirrors the signup sweeper to prevent unbounded growth.
-const _loginSweeper = setInterval(() => {
-  const now = Date.now();
-  for (const [identifier, timestamps] of loginFailures) {
-    const fresh = timestamps.filter((t) => now - t < securityConfig.LOGIN_WINDOW_MS);
-    if (fresh.length === 0) {
-      loginFailures.delete(identifier);
-    } else {
-      loginFailures.set(identifier, fresh);
-    }
-  }
-}, securityConfig.LOGIN_WINDOW_MS);
-if (_loginSweeper.unref) _loginSweeper.unref();
 
-/**
- * Returns true when the given identifier has reached the failed-login limit
- * within the current sliding window.
- */
-function isLoginRateLimited(identifier) {
-  const now = Date.now();
-  const attempts = loginFailures.get(identifier) || [];
-  const recent = attempts.filter((t) => now - t < securityConfig.LOGIN_WINDOW_MS);
-  loginFailures.set(identifier, recent); // keep array trimmed
-  return recent.length >=securityConfig.LOGIN_RATE_LIMIT;
-}
-
-/**
- * Records a single failed login attempt for the given identifier.
- * Only call this after confirming the credentials were wrong.
- */
-function recordLoginFailure(identifier) {
-  const now = Date.now();
-  const attempts = loginFailures.get(identifier) || [];
-  const recent = attempts.filter((t) => now - t < securityConfig.LOGIN_WINDOW_MS);
-  recent.push(now);
-  loginFailures.set(identifier, recent);
-}
-
-/**
- * Clears the failure counter for the given identifier on successful login
- * so a legitimate user is never locked out after a prior mistake.
- */
-function clearLoginFailures(identifier) {
-  loginFailures.delete(identifier);
-}
 // ────────────────────────────────────────────────────────────────────────────
 
 const mimeTypes = {
