@@ -92,8 +92,18 @@ export function setupApiRoutes(req, res, pathname) {
     if (topic && topic.length > 0) {
       // Add topic to request params
       req.params = req.params || {};
-      req.params.topic = decodeURIComponent(topic);
-      return handleMemoryDelete(req, res);
+      try {
+      
+        req.params.topic = decodeURIComponent(topic);
+        return handleMemoryDelete(req, res);
+      } catch (error) {
+        if (error instanceof URIError) {
+          return res.status(400).json({
+            error: 'Invalid URL-encoded route parameter. Please provide a valid topic identifier.'
+          });
+        }
+        throw error; 
+      }
     }
   }
 
