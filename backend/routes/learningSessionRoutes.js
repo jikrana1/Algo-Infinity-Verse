@@ -20,7 +20,22 @@ import path from 'path';
 
 const LEARNING_SESSIONS_FILE = path.join(DATA_DIR, 'learning_sessions.json');
 const LEARNING_EVENTS_FILE = path.join(DATA_DIR, 'learning_session_events.json');
-
+// 🔥 ISSUE #2209 FIX: Define supported event types
+const SUPPORTED_LEARNING_EVENT_TYPES = [
+  'session_started',
+  'session_ended',
+  'video_started',
+  'video_paused',
+  'video_ended',
+  'problem_attempted',
+  'problem_solved',
+  'quiz_attempted',
+  'quiz_completed',
+  'xp_earned',
+  'badge_unlocked',
+  'topic_visited',
+  'code_playground_used'
+];
 async function ensureFile(filePath, initial) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   try {
@@ -202,7 +217,15 @@ export async function setupLearningSessionRoutes(req, res, pathname) {
     if (!sessionUser) return sendJson(res, 401, { error: 'Authentication required.' });
 
     const payload = await readJsonBody(req);
-    const type = String(payload?.type || payload?.eventType || 'unknown_event');
+
+    const type = String(payload?.type || payload?.eventType || '');
+
+          if (!type || !SUPPORTED_LEARNING_EVENT_TYPES.includes(type)) {
+      return sendJson(res, 400, {
+        success: false,
+        error: `Invalid learning event type: "${type}". Supported types are: ${SUPPORTED_LEARNING_EVENT_TYPES.join(', ')}.`
+      });
+    }
 
     const event = {
       id: `evt_${uuidv4()}`,
