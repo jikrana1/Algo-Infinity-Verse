@@ -32,6 +32,12 @@ export async function handleAnalyzeResume(req, res) {
     }
 
     const text = await extractResumeText(req.file);
+    const MAX_RESUME_TEXT_LENGTH = 50000; // 50,000 characters is a safe limit
+    if (text.length > MAX_RESUME_TEXT_LENGTH) {
+      return sendJson(res, 400, {
+        error: `Resume text is too long (${text.length} characters). Please limit your resume text to ${MAX_RESUME_TEXT_LENGTH} characters.`
+      });
+    }
     const atsScore = calculateATS(text);
     const missingSkills = findMissingSkills(text);
     const suggestions = getSuggestions(atsScore);
