@@ -385,6 +385,11 @@ function validateSignup({ name, email, password, confirmPassword }) {
 }
 
 async function readJsonBody(req) {
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.startsWith('application/json')) {
+    throw new Error('Invalid Content-Type. Expected application/json.');
+  }
+
   let body = '';
   for await (const chunk of req) {
     body += chunk;
@@ -585,6 +590,9 @@ const server = http.createServer(async (req, res) => {
     return await serveStatic(req, res, pathname);
   } catch (error) {
     console.error(error);
+    if (error.message === 'Invalid Content-Type. Expected application/json.') {
+      return sendJson(res, 415, { error: 'Unsupported Media Type. Please set Content-Type: application/json.' });
+    }
     sendJson(res, 500, { error: 'Something went wrong.' });
   }
 });
