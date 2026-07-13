@@ -49,6 +49,13 @@ export async function handleAnalyzeResume(req, res) {
     });
   } catch (error) {
     console.error("Resume analysis error:", error);
+
+    if (error.message === 'Resume text extraction timed out.') {
+      return sendJson(res, 408, {
+        error: "The request took too long to process. The resume file might be corrupted or too complex."
+      });
+    }
+
     return sendJson(res, 500, { error: error.message || "Failed to analyze resume." });
   }
 }
