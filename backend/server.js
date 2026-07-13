@@ -289,7 +289,9 @@ async function readUsers() {
 
 async function writeUsers(users) {
   await ensureUserStore();
-  await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`);
+  const tmpPath = `${USERS_FILE}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmpPath, `${JSON.stringify(users, null, 2)}\n`);
+  await fs.rename(tmpPath, USERS_FILE);
 }
 
 // ── Memory Scanner (Spaced Repetition, SM-2) ─────────────────────────────────
