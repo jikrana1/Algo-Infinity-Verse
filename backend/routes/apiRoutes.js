@@ -95,7 +95,6 @@ export function setupApiRoutes(req, res, pathname) {
       try {
       
         req.params.topic = decodeURIComponent(topic);
-        return handleMemoryDelete(req, res);
       } catch (error) {
         if (error instanceof URIError) {
           return res.status(400).json({
@@ -104,6 +103,7 @@ export function setupApiRoutes(req, res, pathname) {
         }
         throw error; 
       }
+      return handleMemoryDelete(req, res);
     }
   }
 
