@@ -19,6 +19,8 @@ import {
 } from '../handlers/memoryHandlers.js';
 import { handleUserPersonality } from '../handlers/personalityHandlers.js';
 
+const MAX_TOPIC_LENGTH = 100; // Defined the missing character limit metric
+
 export function setupApiRoutes(req, res, pathname) {
   
   // Guest Login
@@ -97,82 +99,6 @@ export function setupApiRoutes(req, res, pathname) {
     return handleMemoryAll(req, res);
   }
 
-  // DELETE /api/memory/:topic - Dynamic Route (Keep at the end of memory routes)
-  if (pathname.startsWith('/api/memory/')) {
-    // Ensure it doesn't match other exact memory routes
-    const isDynamicRoute = !['/api/memory/log', '/api/memory/due', '/api/memory/all', '/api/memory/stats', '/api/memory/reset'].includes(pathname);
-
-    if (isDynamicRoute) {
-      if (req.method !== 'DELETE') {
-        return res.status(405).setHeader('Allow', 'DELETE').json({ error: 'Method Not Allowed. Use DELETE.' });
-      }
-
-      const topic = pathname.replace('/api/memory/', '');
-      if (topic && topic.length > 0) {
-        req.params = req.params || {};
-        try {
-          req.params.topic = decodeURIComponent(topic);
-          return handleMemoryDelete(req, res);
-        } catch (error) {
-          if (error instanceof URIError) {
-            return res.status(400).json({ error: 'Invalid URL-encoded route parameter.' });
-          }
-          throw error;
-        }
-  // DELETE /api/memory/:topic - Delete a card
-  // Note: pathname will be like /api/memory/Spanish%20Verbs
-  if (pathname.startsWith('/api/memory/') && req.method === 'DELETE') {
-    // Extract topic from pathname
-    const rawTopic = pathname.replace('/api/memory/', '');
-    if (rawTopic && rawTopic.length > 0) {
-      // Add topic to request params
-      req.params = req.params || {};
-
-      try {
-        // 1. Safely decode the topic (Fixes #2206)
-        const decodedTopic = decodeURIComponent(rawTopic);
-
-        const MAX_TOPIC_LENGTH = 100;
-
-        // a. Reject empty or whitespace-only strings
-        const trimmedTopic = decodedTopic.trim();
-        if (trimmedTopic.length === 0) {
-          return res.status(400).json({
-            error: 'Invalid topic provided. Topic cannot be empty or contain only whitespace.'
-          });
-        }
-
-        // b. Enforce maximum length
-        if (trimmedTopic.length > MAX_TOPIC_LENGTH) {
-          return res.status(400).json({
-            error: `Topic exceeds maximum length of ${MAX_TOPIC_LENGTH} characters.`
-          });
-        }
-
-        // c. Validate against supported character rules 
-        // (Allows letters, numbers, spaces, hyphens, underscores, and periods)
-        if (!/^[a-zA-Z0-9\s\-_.]+$/.test(trimmedTopic)) {
-          return res.status(400).json({
-            error: 'Topic contains unsupported characters. Only letters, numbers, spaces, hyphens, underscores, and periods are allowed.'
-          });
-        }
-        // ==========================================
-
-        // Assign the sanitized topic to params
-        req.params.topic = trimmedTopic;
-        return handleMemoryDelete(req, res);
-
-      } catch (error) {
-        if (error instanceof URIError) {
-          return res.status(400).json({
-            error: 'Invalid URL-encoded route parameter. Please provide a valid topic identifier.'
-          });
-        }
-        throw error; // Rethrow any other unexpected system errors
-      }
-    }
-  }
-
   // GET /api/memory/stats
   if (pathname === '/api/memory/stats') {
     if (req.method !== 'GET') return res.status(405).setHeader('Allow', 'GET').json({ error: 'Method Not Allowed. Use GET.' });
@@ -185,15 +111,59 @@ export function setupApiRoutes(req, res, pathname) {
     return handleMemoryReset(req, res);
   }
 
+  // DELETE /api/memory/:topic - Dynamic Route
+  if (pathname.startsWith('/api/memory/')) {
+    const isDynamicRoute = !['/api/memory/log', '/api/memory/due', '/api/memory/all', '/api/memory/stats', '/api/memory/reset'].includes(pathname);
+
+    if (isDynamicRoute) {
+      if (req.method !== 'DELETE') {
+        return res.status(405).setHeader('Allow', 'DELETE').json({ error: 'Method Not Allowed. Use DELETE.' });
+      }
+
+      const rawTopic = pathname.replace('/api/memory/', '');
+      if (rawTopic && rawTopic.length > 0) {
+        req.params = req.params || {};
+        
+        try {
+          const decodedTopic = decodeURIComponent(rawTopic);
+          const trimmedTopic = decodedTopic.trim();
+
+          // Enforce maximum length
+          if (trimmedTopic.length > MAX_TOPIC_LENGTH) {
+            return res.status(400).json({
+              error: `Topic exceeds maximum length of ${MAX_TOPIC_LENGTH} characters.`
+            });
+          }
+
+          // Validate against supported character rules 
+          if (!/^[a-zA-Z0-9\s\-_.]+$/.test(trimmedTopic)) {
+            return res.status(400).json({
+              error: 'Topic contains unsupported characters. Only letters, numbers, spaces, hyphens, underscores, and periods are allowed.'
+            });
+          }
+
+          // Assign sanitized topic and route to the handler
+          req.params.topic = trimmedTopic;
+          return handleMemoryDelete(req, res);
+
+        } catch (error) {
+          if (error instanceof URIError) {
+            return res.status(400).json({
+              error: 'Invalid URL-encoded route parameter. Please provide a valid topic identifier.'
+            });
+          }
+          throw error; 
+        }
+      }
+    }
+  }
+
   // Coding Personality
   if (pathname === '/api/user/personality') {
     if (req.method !== 'GET') return res.status(405).setHeader('Allow', 'GET').json({ error: 'Method Not Allowed. Use GET.' });
     return handleUserPersonality(req, res);
   }
 
-  // Learning Session Replay & Timeline
-  // handled by api/[...path].js catch-all for these routes.
-
-  // If no route matches, return 404 Not Found
+  // If no route matches, return null
   return null;
 }
