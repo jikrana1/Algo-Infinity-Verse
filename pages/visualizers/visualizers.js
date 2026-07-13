@@ -829,6 +829,13 @@ const visualizers = [
     icon: 'fa-sitemap',
     desc: 'Explore Hierarchical Navigable Small World graphs for approximate nearest neighbor search.',
   },
+  {
+    name: 'Cuckoo Hashing Visualizer',
+    path: '/pages/visualizers/cuckoo-hashing-visualizer/cuckoo-hashing-visualizer.html',
+    category: 'Data Structures',
+    icon: 'fa-table-cells',
+    desc: 'Guaranteed O(1) worst-case lookup via two tables and eviction chains.',
+  },
 
   // ── Special & Creative ──
   {
