@@ -5,8 +5,6 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "build": "node scripts/build-legacy.mjs",
-    "postinstall": "npm run build",
     "start": "node server.js",
     "dev": "node server.js",
     "dev:api": "node dev-server.js",
