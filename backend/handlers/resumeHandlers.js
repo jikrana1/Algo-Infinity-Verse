@@ -31,7 +31,15 @@ export async function handleAnalyzeResume(req, res) {
       return sendJson(res, 400, { error: "No resume file uploaded." });
     }
 
-    const text = await extractResumeText(req.file);
+    const TIMEOUT_MS = 15000; // 15 seconds
+    const extractionPromise = extractResumeText(req.file);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Resume text extraction timed out.')), TIMEOUT_MS)
+    );
+
+    // Race the extraction against the timeout
+    const text = await Promise.race([extractionPromise, timeoutPromise]);
+
     const atsScore = calculateATS(text);
     const missingSkills = findMissingSkills(text);
     const suggestions = getSuggestions(atsScore);
@@ -43,6 +51,13 @@ export async function handleAnalyzeResume(req, res) {
     });
   } catch (error) {
     console.error("Resume analysis error:", error);
+
+    if (error.message === 'Resume text extraction timed out.') {
+      return sendJson(res, 408, {
+        error: "The request took too long to process. The resume file might be corrupted or too complex."
+      });
+    }
+
     return sendJson(res, 500, { error: error.message || "Failed to analyze resume." });
   }
 }
