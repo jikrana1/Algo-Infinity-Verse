@@ -4,10 +4,10 @@ import { extractResumeText } from '../resume-analyzer/parser.js';
 import { calculateATS } from '../resume-analyzer/atsScore.js';
 import { findMissingSkills } from '../resume-analyzer/skills.js';
 import { getSuggestions } from '../resume-analyzer/suggestions.js';
-import {
-  MAX_RESUME_TEXT_LENGTH,
-  MAX_RESUME_FILE_SIZE_BYTES,
-} from '../constants/resumeConstants.js';
+import securityConfig from '../config/security.js';
+
+const MAX_RESUME_FILE_SIZE_BYTES = securityConfig.MAX_RESUME_FILE_SIZE_BYTES;
+const MAX_RESUME_TEXT_LENGTH = securityConfig.MAX_RESUME_TEXT_LENGTH;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,15 +46,11 @@ export async function handleAnalyzeResume(req, res) {
 
     return sendJson(res, 200, {
       atsScore,
+      missingSkills,
+      suggestions,
+    });
+  } catch (error) {
     console.error('Resume analysis error:', error);
-
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return sendJson(res, 413, { error: 'File size exceeds the allowed limit.' });
-    }
-
-    if (error.message === 'Invalid file type uploaded.') {
-      return sendJson(res, 400, { error: error.message });
-    }
 
     if (error.message === 'Resume text extraction timed out.') {
       return sendJson(res, 408, {
