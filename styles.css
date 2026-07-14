@@ -3278,7 +3278,12 @@ section[id] {
   align-items: center;
   justify-content: center;
 
-  transition: all 0.3s ease;
+  transition:
+    background 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
   margin-left: auto;
   margin-right: 0.7rem;
@@ -3297,6 +3302,28 @@ section[id] {
   background: rgba(255, 77, 109, 0.15);
   color: #ff4d6d;
   border-color: #ff4d6d;
+}
+
+@keyframes favPulse {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.45);
+  }
+  70% {
+    transform: scale(0.85);
+  }
+  100% {
+    transform: scale(1.12);
+  }
+}
+
+.favorite-btn.pulse {
+  animation: favPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  color: #ff4d6d !important;
+  border-color: #ff4d6d !important;
+  box-shadow: 0 0 20px rgba(255, 77, 109, 0.5) !important;
 }
 
 .notes-btn {
@@ -5055,7 +5082,9 @@ section[id] {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .recent-activity-item:hover {
@@ -6914,7 +6943,7 @@ body.modal-open {
   display: block;
 }
 
-.lang-edit-label input[type="checkbox"] {
+.lang-edit-label input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
   width: 18px;
@@ -6927,12 +6956,12 @@ body.modal-open {
   flex-shrink: 0;
   transition: all 0.2s ease;
 }
-.lang-edit-label input[type="checkbox"]:checked {
+.lang-edit-label input[type='checkbox']:checked {
   background: var(--primary);
   border-color: var(--primary);
 }
-.lang-edit-label input[type="checkbox"]:checked::after {
-  content: "✓";
+.lang-edit-label input[type='checkbox']:checked::after {
+  content: '✓';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -6941,7 +6970,7 @@ body.modal-open {
   font-size: 12px;
   font-weight: 700;
 }
-.lang-edit-label input[type="checkbox"]:focus-visible {
+.lang-edit-label input[type='checkbox']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
